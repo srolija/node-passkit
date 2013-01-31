@@ -1,0 +1,894 @@
+<!DOCTYPE html>  <html> <head>   <title>passkit.coffee</title>   <meta http-equiv="content-type" content="text/html; charset=UTF-8">   <link rel="stylesheet" media="all" href="style.css" /> </head> <body>   <div id="container">     <div id="background"></div>          <table cellpadding="0" cellspacing="0">       <thead>         <tr>           <th class="docs">             <h1>               passkit.coffee             </h1>           </th>           <th class="code">           </th>         </tr>       </thead>       <tbody>                               <tr id="section-1">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-1">&#182;</a>               </div>               <p><em>Author: Sergej Jakovljev</em></p>             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-2">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-2">&#182;</a>               </div>               <p><strong><a href="http://www.passkit.com/">PassKit</a></strong> is a simple service used for using
+Passbook passes in web and other applications. 
+This library makes using PassKit API simple by removing overhead of 
+authenticating using Digest authentication and by implementing all of the 
+available API endpoints as functions. You can download this library from 
+<a href="https://github.com/srolija/node-passkit">Github</a>.</p>
+
+<p>Be sure to check at the end of this document how each function is mapped to 
+module exports in order to avoid any confusion regarding missing functions.</p>
+
+<h2>Important</h2>
+
+<p>For almost all functions in PassKit class <code>callback</code> parameter is required, it
+should be function that receives two parameters. The first parameter is 
+<code>error</code> which will be instance of PassKitError with message containing error 
+from server if error occurred otherwise it will be <code>null</code>. Second parameter 
+will have data API returned if there was no error.</p>
+
+<p>There is limit of 1 push request to all passes within one template to every 10 
+minutes.</p>
+
+<p>Example:</p>
+
+<pre><code>// Import library as passkit
+passkit.testConnection(function(err, data){
+  if (err) {
+    // Handle error case
+    console.error(err);
+  } else {
+    // Do something with data 
+    // NOTICE: testConnection doesn't return anything
+    console.log("API works!");
+  }
+});
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-3">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-3">&#182;</a>               </div>               <h2>Field types</h2>
+
+<ul>
+<li><strong>static</strong>: these cannot be changed via pass methods, only by template methods 
+such as template update.</li>
+<li><strong>dynamic</strong>: these can be changed via pass methods such as pass update as well 
+as template methods.</li>
+<li><strong>user</strong>: these are dynamic fields that can be filled in by the user when they 
+go to the pass URL to download it. </li>
+</ul>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">crypto = </span><span class="nx">require</span><span class="p">(</span><span class="s">&quot;crypto&quot;</span><span class="p">)</span>
+<span class="nv">fs = </span><span class="nx">require</span><span class="p">(</span><span class="s">&quot;fs&quot;</span><span class="p">)</span>
+<span class="nv">querystring = </span><span class="nx">require</span><span class="p">(</span><span class="s">&quot;querystring&quot;</span><span class="p">)</span>
+<span class="nv">https = </span><span class="nx">require</span><span class="p">(</span><span class="s">&quot;https&quot;</span><span class="p">)</span>
+<span class="nv">mime = </span><span class="nx">require</span><span class="p">(</span><span class="s">&quot;mime&quot;</span><span class="p">)</span>
+
+<span class="nv">HOST = </span><span class="s">&quot;api.passkit.com&quot;</span>
+<span class="nv">API = </span><span class="s">&quot;/v1&quot;</span>
+<span class="nv">PORT = </span><span class="mi">443</span></pre></div>             </td>           </tr>                               <tr id="section-4">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-4">&#182;</a>               </div>               <h1>Helpers (private)</h1>
+
+<p>Private functions that are used by PassKit class. They are not meant to be 
+used outside the library itself but if one really wants they can be accessed
+under <code>.private</code> library attribute.</p>             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-5">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-5">&#182;</a>               </div>               <h3>generateHex([length])</h3>
+
+<p>Returns string with random hexadecimal characters made out of <code>length</code> bytes.
+If no <code>length</code> attribute is passed it will be set to 6. <br />
+Returned string will be long twice the number of bytes.</p>
+
+<pre><code>generateHex();
+// =&gt; "36e44ae142db"
+generateHex(12);
+// =&gt; "c6ff4246b7be31f19580daa6"
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">generateHex = </span><span class="nf">(length=6) -&gt;</span>
+  <span class="nx">crypto</span><span class="p">.</span><span class="nx">randomBytes</span><span class="p">(</span><span class="nx">length</span><span class="p">).</span><span class="nx">toString</span><span class="p">(</span><span class="s">&quot;hex&quot;</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-6">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-6">&#182;</a>               </div>               <h3>md5(value)</h3>
+
+<p>Shortcut for creating md5 hash synchronously from given <code>value</code> and returning
+it as a string.</p>
+
+<pre><code>md5("PassKit");
+// =&gt; "8e390120521cb9a29c5165dd0b49740c
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">md5 = </span><span class="nf">(value) -&gt;</span>
+  <span class="nx">crypto</span><span class="p">.</span><span class="nx">createHash</span><span class="p">(</span><span class="s">&quot;md5&quot;</span><span class="p">).</span><span class="nx">update</span><span class="p">(</span><span class="nx">value</span><span class="p">).</span><span class="nx">digest</span><span class="p">(</span><span class="s">&quot;hex&quot;</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-7">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-7">&#182;</a>               </div>               <h3>PassKitError([message])</h3>
+
+<p>Custom <code>Error</code> class for this library to make understanding where error came
+from more easy, <code>message</code> parameter is optional and it will serve as error 
+message.</p>
+
+<pre><code>throw new PassKitError('Wrong username!');
+// =&gt; PassKitError: Wrong username!
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">PassKitError = </span><span class="nf">(message=&#39;&#39;) -&gt;</span>
+  <span class="nb">Error</span><span class="p">.</span><span class="nx">call</span><span class="p">(</span><span class="k">this</span><span class="p">)</span>
+  <span class="nb">Error</span><span class="p">.</span><span class="nx">captureStackTrace</span><span class="p">(</span><span class="k">this</span><span class="p">,</span> <span class="nx">arguments</span><span class="p">.</span><span class="nx">callee</span><span class="p">)</span>
+  <span class="vi">@message = </span><span class="nx">message</span>
+  <span class="vi">@name = </span><span class="s">&quot;PassKitError&quot;</span>
+
+<span class="nv">PassKitError.prototype.__proto__ = </span><span class="nb">Error</span><span class="p">.</span><span class="nx">prototype</span></pre></div>             </td>           </tr>                               <tr id="section-8">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-8">&#182;</a>               </div>               <h3>parseDigest(header)</h3>
+
+<p>Parse <code>header</code> which is string data from www-authenticate header and return it
+as an array of key-value pairs.</p>
+
+<p>It works by removing "Digest" from beginning of <code>header</code> then it splits the 
+rest by commas and splits each line into key and value pair.</p>
+
+<pre><code>var s = 'Digest realm="Request:9a9ds09",qop="auth",' +
+    'nonce="440b306b",opaque="05949be8b"';
+
+parseDigest(s);
+// =&gt; [ realm: 'Request:9a9ds09',
+//      qop: 'auth',
+//      nonce: '440b306b',
+//      opaque: '05949be8b' ]
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">parseDigest = </span><span class="nf">(header) -&gt;</span>
+  <span class="nv">parameters = </span><span class="p">[]</span>
+
+  <span class="nv">headerArray = </span><span class="nx">header</span><span class="p">.</span><span class="nx">substring</span><span class="p">(</span><span class="mi">6</span><span class="p">).</span><span class="nx">split</span><span class="p">(</span><span class="sr">/,\s*/</span><span class="p">)</span>
+  <span class="k">if</span> <span class="nx">headerArray</span><span class="p">.</span><span class="nx">length</span> <span class="o">&gt;</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="nx">parameter</span> <span class="k">in</span> <span class="nx">headerArray</span>
+      <span class="nv">pair = </span><span class="nx">parameter</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s">&quot;=&quot;</span><span class="p">)</span>
+      <span class="nv">key = </span><span class="nx">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/\s*/g</span><span class="p">,</span> <span class="s">&quot;&quot;</span><span class="p">)</span>
+      <span class="nv">value = </span><span class="nx">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/&quot;/g</span><span class="p">,</span> <span class="s">&quot;&quot;</span><span class="p">)</span>
+      <span class="nx">parameters</span><span class="p">[</span><span class="nx">key</span><span class="p">]</span> <span class="o">=</span> <span class="nx">value</span>
+
+  <span class="k">return</span> <span class="nx">parameters</span></pre></div>             </td>           </tr>                               <tr id="section-9">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-9">&#182;</a>               </div>               <h3>renderDigest(parameters)</h3>
+
+<p>Converts object with <code>parameters</code> to formated string.</p>
+
+<p>It will create string starting with "Digest " and add each of key-value 
+parameters to it. At the end it removes last two characters (", ") that are 
+unnecessary because at that point we have already added all parameters.</p>
+
+<p>In case that parameters is empty <code>null</code> will be returned.</p>
+
+<pre><code>var params = { 
+  username: 'ia09sdjoa',
+  realm: 'Request:9a9ds09'
+};
+
+renderDigest(params);
+// =&gt; 'Digest username="ia09sdjoa", realm="Request:9a9ds09"'
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">renderDigest = </span><span class="nf">(parameters) -&gt;</span>
+  <span class="nv">header = </span><span class="s">&quot;Digest &quot;</span>
+
+  <span class="k">for</span> <span class="nx">key</span> <span class="k">in</span> <span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="nx">parameters</span><span class="p">)</span>
+    <span class="nx">header</span> <span class="o">+=</span> <span class="s">&quot;</span><span class="si">#{</span><span class="nx">key</span><span class="si">}</span><span class="s">=\&quot;</span><span class="si">#{</span><span class="nx">parameters</span><span class="p">[</span><span class="nx">key</span><span class="p">]</span><span class="si">}</span><span class="s">\&quot;, &quot;</span>
+
+  <span class="k">if</span> <span class="nx">header</span> <span class="o">is</span> <span class="s">&quot;Digest &quot;</span>
+    <span class="k">return</span> <span class="kc">null</span>
+
+  <span class="k">return</span> <span class="nx">header</span><span class="p">.</span><span class="nx">substring</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nx">header</span><span class="p">.</span><span class="nx">length</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-10">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-10">&#182;</a>               </div>               <h3>sanitize(value)</h3>
+
+<p>Strips non alpha-numerics except _ (underline), . (dot) and / (slash) from 
+<code>value</code>. <br />
+This way we can be sure that values like <code>username</code>, <code>secret</code> and generaly
+unique ID-s that we are going to use have no invalid characters (for example 
+accidental whitespace).</p>
+
+<pre><code>sanitize("$  ed8808.d5e.1f6d289dc16_0b7b");
+// =&gt; "ed8808.d5e.1f6d289dc16_0b7b"
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">sanitize = </span><span class="nf">(value) -&gt;</span>
+  <span class="nx">value</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/[^\w\.\/]/gi</span><span class="p">,</span> <span class="s">&quot;&quot;</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-11">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-11">&#182;</a>               </div>               <h1>Helpers (public)</h1>
+
+<p>Helpers that may not be used by PassKit class but could be useful for using 
+along this library. They are available under <code>.helpers</code> attribute of library. </p>             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-12">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-12">&#182;</a>               </div>               <h3>parsePassURL(url)</h3>
+
+<p>Takes pass recovery or download <code>url</code> and returns unique pass ID. Pass ID can
+be used with method names that contain <code>ByID</code> at the end instead of serial and 
+template name pair. <br />
+Typical use case would be when you issue pass and you want to find out pass ID
+without querying server for newly created pass.</p>
+
+<p>In case of invalid <code>url</code> it will throw <code>PassKitError</code>!</p>
+
+<p>Example:</p>
+
+<pre><code>parsePassURL("https://r.pass.is/pAsSuNiqUeID");
+// =&gt; "pAsSuNiqUeID"
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">parsePassURL = </span><span class="nf">(url) -&gt;</span>
+  <span class="k">if</span> <span class="nx">url</span><span class="p">[</span><span class="nx">url</span><span class="p">.</span><span class="nx">length</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">is</span> <span class="s">&#39;/&#39;</span>
+    <span class="nv">url = </span><span class="nx">url</span><span class="p">.</span><span class="nx">substring</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nx">url</span><span class="p">.</span><span class="nx">length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+  <span class="k">if</span> <span class="o">not</span> <span class="sr">/http(s)*:\/\/(.+)/i</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">url</span><span class="p">)</span>
+    <span class="k">throw</span> <span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Invalid string!&quot;</span><span class="p">)</span>
+
+  <span class="k">return</span> <span class="sr">/http(s)*:\/\/(.+)\/(.*)/i</span><span class="p">.</span><span class="nx">exec</span><span class="p">(</span><span class="nx">url</span><span class="p">)[</span><span class="mi">3</span><span class="p">]</span></pre></div>             </td>           </tr>                               <tr id="section-13">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-13">&#182;</a>               </div>               <h3>supportsPassbook(userAgent)</h3>
+
+<p>Returns <code>true</code> if <code>userAgent</code> supports Passbook.
+ATM only supported browsers are Safari on OS X 10.8.2+ and Safari on iOS 6. 
+You will be most likely calling this function with 
+<code>request.headers['user-agent']</code> as a parameter.</p>
+
+<pre><code>// Mobile Safari on iOS 6.0
+var UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 ...";
+supportsPassbook(UA);
+// =&gt; true
+
+// Safari on OS X 10.7.3
+var UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3 ..";
+supportsPassbook(UA);
+// =&gt; false
+
+// Safari on OS X 10.8.2
+var UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2 ..";
+supportsPassbook(UA);
+// =&gt; true
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">supportsPassbook = </span><span class="nf">(userAgent) -&gt;</span></pre></div>             </td>           </tr>                               <tr id="section-14">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-14">&#182;</a>               </div>               <p>Check for most popular browsers, if it is Safari/Webkit based and it is not 
+Chrome (Chromium/Chrome) then it is most likely either Safari on OS X or 
+Safari on iOS (other browsers on iOS like Chrome are in most cases just 
+warper over Mobile Safari and Mobile Safari on iOS 6+ supports passes so 
+most browsers on iPhone should by default also support them).</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="k">if</span> <span class="sr">/Safari/gi</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">userAgent</span><span class="p">)</span> <span class="o">and</span> <span class="o">not</span> <span class="sr">/Chrom/gi</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">userAgent</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="kc">true</span> <span class="k">if</span> <span class="sr">/iPhone; CPU iPhone OS 6/gi</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">userAgent</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">true</span> <span class="k">if</span> <span class="sr">/iPod; CPU iPhone OS 6/gi</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">userAgent</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="kc">true</span> <span class="k">if</span> <span class="sr">/Mac OS X 10_8_[2-9]/gi</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">userAgent</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">true</span> <span class="k">if</span> <span class="sr">/Mac OS X 10_9_[0-9]/gi</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">userAgent</span><span class="p">)</span>
+
+  <span class="k">return</span> <span class="kc">false</span>    </pre></div>             </td>           </tr>                               <tr id="section-15">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-15">&#182;</a>               </div>               <h1>PassKit class (public)</h1>
+
+<h3>PassKit(account, secret)</h3>
+
+<p>This is what gets called on when library is required.</p>
+
+<p>It takes two parameters: <code>account</code> and <code>secret</code> which are used for 
+authentication with server. If either of them are missing <code>PassKitError</code> will 
+be thrown.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">PassKit = </span><span class="nf">(account, secret) -&gt;</span>
+  
+  <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">account</span><span class="p">)</span>
+    <span class="k">throw</span> <span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Account ID is required.&quot;</span><span class="p">)</span>
+
+  <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">secret</span><span class="p">)</span>
+    <span class="k">throw</span> <span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Account Secret is required.&quot;</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-16">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-16">&#182;</a>               </div>               <p>Digest authentication values, this is created here in order to be shared 
+between multiple (parallel) requests because we want to make as little 
+requests to the API as possible, best way to do it is by requesting new 
+digest data only when it is changed. Either every specified time interval or
+when Error 401 is returned (later more about exact process).</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">digest =</span>
+    <span class="nv">counter: </span><span class="mi">0</span>
+    <span class="nv">HA1: </span><span class="kc">null</span>
+    <span class="nv">nonce: </span><span class="kc">null</span>
+    <span class="nv">opaque: </span><span class="kc">null</span>
+    <span class="nv">qop: </span><span class="kc">null</span>
+    <span class="nv">realm: </span><span class="kc">null</span>
+    <span class="nv">time: </span><span class="k">new</span> <span class="nb">Date</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    </pre></div>             </td>           </tr>                               <tr id="section-17">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-17">&#182;</a>               </div>               <h2>Base functions</h2>             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-18">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-18">&#182;</a>               </div>               <h3>request(callback, [options], [body], [stringify])</h3>
+
+<p>This function is used as request handler for all the other functions.
+<code>options</code> is object with values which are passed to the <code>https.request</code>
+and <code>body</code> is content that is sent in body of request (in case of <code>POST</code> or 
+<code>PUT</code> method). <code>stringify</code> dictates whether <code>body</code> content should be encoded
+as a query string or not.</p>
+
+<h4>Implementation</h4>
+
+<p>In order to communicate with PassKit API we need to use Digest access 
+authentication which is not supported by core libraries nor any <code>npm</code> 
+package (there are some but they are built for server side, we need client 
+-- https.request that supports it). Reasons why there isn't support yet and 
+most likely will never be can be found here: 
+<a href="https://github.com/joyent/node/issues/4426">https://github.com/joyent/node/issues/4426</a>.</p>
+
+<p>This implementation follows implementation example that can be found on
+<a href="http://en.wikipedia.org/wiki/Digest_access_authentication">Wikipedia - Digest access authentication</a>.
+This implementation is specific to the current version of authentication
+that PassKit API is using <code>qop="auth"</code> if <code>qop</code> changes some changes will be 
+required.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">request = </span><span class="nf">(callback, options, body=null, stringify=false) -&gt;</span></pre></div>             </td>           </tr>                               <tr id="section-19">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-19">&#182;</a>               </div>               <p>This will be used to clone option object if we need it in its original 
+form for reauthorization and retrial request if we get 401: 
+Authentication error.</p>
+
+<p>Clone function credits (<em>author: ConroyP</em>): 
+<a href="http://stackoverflow.com/a/122190">http://stackoverflow.com/a/122190</a></p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">cloneObject = </span><span class="nf">(obj) -&gt;</span>
+      <span class="k">return</span> <span class="nx">obj</span>  <span class="k">if</span> <span class="o">not</span> <span class="nx">obj</span><span class="o">?</span> <span class="o">or</span> <span class="k">typeof</span> <span class="p">(</span><span class="nx">obj</span><span class="p">)</span> <span class="o">isnt</span> <span class="s">&quot;object&quot;</span>
+      <span class="nv">temp = </span><span class="nx">obj</span><span class="p">.</span><span class="nx">constructor</span><span class="p">()</span>
+      <span class="k">for</span> <span class="nx">key</span> <span class="k">of</span> <span class="nx">obj</span>
+        <span class="nx">temp</span><span class="p">[</span><span class="nx">key</span><span class="p">]</span> <span class="o">=</span> <span class="nx">cloneObject</span><span class="p">(</span><span class="nx">obj</span><span class="p">[</span><span class="nx">key</span><span class="p">])</span>
+      <span class="nx">temp</span></pre></div>             </td>           </tr>                               <tr id="section-20">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-20">&#182;</a>               </div>               <p>Copy options (call function will modify it and this way we preserve 
+original data).</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">options_tmp = </span><span class="nx">cloneObject</span><span class="p">(</span><span class="nx">options</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-21">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-21">&#182;</a>               </div>               <p>Temponary body content must be outside call function scope because we need
+it to end request.</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">body_tmp = </span><span class="s">&#39;&#39;</span>
+
+    <span class="nv">call = </span><span class="nf">(retry=false) -&gt;</span>
+      <span class="nv">options.host = </span><span class="nx">HOST</span> <span class="k">unless</span> <span class="nx">options</span><span class="p">.</span><span class="nx">host</span>
+      <span class="nv">options.method = </span><span class="s">&quot;GET&quot;</span> <span class="k">unless</span> <span class="nx">options</span><span class="p">.</span><span class="nx">method</span>
+      <span class="nv">options.path = </span><span class="nx">API</span> <span class="o">+</span> <span class="nx">options</span><span class="p">.</span><span class="nx">path</span>
+      <span class="nv">options.port = </span><span class="nx">PORT</span> <span class="k">unless</span> <span class="nx">options</span><span class="p">.</span><span class="nx">port</span>
+
+      <span class="nv">HA2 = </span><span class="nx">md5</span><span class="p">(</span><span class="s">&quot;</span><span class="si">#{</span><span class="nx">options</span><span class="p">.</span><span class="nx">method</span><span class="si">}</span><span class="s">:</span><span class="si">#{</span><span class="nx">options</span><span class="p">.</span><span class="nx">path</span><span class="si">}</span><span class="s">&quot;</span><span class="p">)</span>
+      <span class="nv">nonceCount = </span><span class="o">++</span><span class="nx">digest</span><span class="p">.</span><span class="nx">counter</span>
+      <span class="nv">nonceClient = </span><span class="nx">generateHex</span><span class="p">()</span>
+      <span class="nv">response = </span><span class="nx">md5</span><span class="p">(</span><span class="s">&quot;</span><span class="si">#{</span><span class="nx">digest</span><span class="p">.</span><span class="nx">HA1</span><span class="si">}</span><span class="s">:</span><span class="si">#{</span><span class="nx">digest</span><span class="p">.</span><span class="nx">nonce</span><span class="si">}</span><span class="s">:</span><span class="si">#{</span><span class="nx">nonceCount</span><span class="si">}</span><span class="s">:</span><span class="si">#{</span><span class="nx">nonceClient</span><span class="si">}</span><span class="s">:auth:</span><span class="si">#{</span><span class="nx">HA2</span><span class="si">}</span><span class="s">&quot;</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-22">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-22">&#182;</a>               </div>               <p>If we haven't passed any other headers we should initialize headers as
+an empty object.</p>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="nv">options.headers = </span><span class="p">{}</span> <span class="k">unless</span> <span class="nx">options</span><span class="p">.</span><span class="nx">headers</span>
+      <span class="nx">options</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="s">&quot;Authorization&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nx">renderDigest</span><span class="p">(</span>
+        <span class="nv">username: </span><span class="nx">account</span>
+        <span class="nv">realm: </span><span class="nx">digest</span><span class="p">.</span><span class="nx">realm</span>
+        <span class="nv">nonce: </span><span class="nx">digest</span><span class="p">.</span><span class="nx">nonce</span>
+        <span class="nv">uri: </span><span class="nx">options</span><span class="p">.</span><span class="nx">path</span>
+        <span class="nv">response: </span><span class="nx">response</span>
+        <span class="nv">opaque: </span><span class="nx">digest</span><span class="p">.</span><span class="nx">opaque</span>
+        <span class="nv">qop: </span><span class="nx">digest</span><span class="p">.</span><span class="nx">qop</span>
+        <span class="nv">nc: </span><span class="nx">nonceCount</span>
+        <span class="nv">cnonce: </span><span class="nx">nonceClient</span>
+      <span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-23">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-23">&#182;</a>               </div>               <p>If we are using POST or PUT method we need to specify body length along
+with body data we are sending. This won't check if you are using POST
+or PUT method but if body is present (if it is, it is assumed that data
+is being sent).</p>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="k">if</span> <span class="nx">body</span>
+        <span class="k">if</span> <span class="nx">stringify</span>
+          <span class="nv">body_tmp = </span><span class="nx">querystring</span><span class="p">.</span><span class="nx">stringify</span><span class="p">(</span><span class="nx">body</span><span class="p">)</span> 
+        <span class="k">else</span></pre></div>             </td>           </tr>                               <tr id="section-24">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-24">&#182;</a>               </div>               <p>If we aren't stringifying it then it won't be changed for retrial
+in case of 401 so there is no need to copy it. </p>             </td>             <td class="code">               <div class="highlight"><pre>          <span class="nv">body_tmp = </span><span class="nx">body</span>
+        <span class="nx">options</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="s">&quot;Content-Length&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nx">body_tmp</span><span class="p">.</span><span class="nx">length</span> </pre></div>             </td>           </tr>                               <tr id="section-25">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-25">&#182;</a>               </div>               <p>Default content type, it will be overridden on multi-part POST.</p>             </td>             <td class="code">               <div class="highlight"><pre>        <span class="nx">options</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="s">&quot;Content-Type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;application/x-www-form-urlencoded&quot;</span> <span class="k">unless</span> <span class="nx">options</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="s">&quot;Content-Type&quot;</span><span class="p">]</span></pre></div>             </td>           </tr>                               <tr id="section-26">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-26">&#182;</a>               </div>               <p>Finally we can create request.</p>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="nx">https</span><span class="p">.</span><span class="nx">request</span><span class="p">(</span><span class="nx">options</span><span class="p">,</span> <span class="nf">(res) -&gt;</span>
+        <span class="nx">res</span><span class="p">.</span><span class="nx">setEncoding</span><span class="p">(</span><span class="s">&quot;utf-8&quot;</span><span class="p">)</span>
+
+        <span class="nv">response =</span>
+          <span class="nv">statusCode: </span><span class="nx">res</span><span class="p">.</span><span class="nx">statusCode</span>
+          <span class="nv">headers: </span><span class="nx">res</span><span class="p">.</span><span class="nx">headers</span>
+          <span class="nv">body: </span><span class="s">&quot;&quot;</span>
+
+        <span class="nx">res</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s">&quot;data&quot;</span><span class="p">,</span> <span class="nf">(chunk) -&gt;</span> <span class="nx">response</span><span class="p">.</span><span class="nx">body</span> <span class="o">+=</span> <span class="nx">chunk</span><span class="p">)</span>
+        <span class="nx">res</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s">&quot;end&quot;</span><span class="p">,</span> <span class="nf">-&gt;</span></pre></div>             </td>           </tr>                               <tr id="section-27">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-27">&#182;</a>               </div>               <p>On first 401: Authentication error retry authentication and resend
+request.</p>             </td>             <td class="code">               <div class="highlight"><pre>          <span class="k">if</span> <span class="o">not</span> <span class="nx">retry</span> <span class="o">and</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">401</span> </pre></div>             </td>           </tr>                               <tr id="section-28">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-28">&#182;</a>               </div>               <p>Make backup options new options for retrying request. This will
+move just reference but it is fine since this is going to be
+called only once.</p>             </td>             <td class="code">               <div class="highlight"><pre>            <span class="nv">options = </span><span class="nx">options_tmp</span>
+            <span class="nx">auth</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span>
+            <span class="k">return</span></pre></div>             </td>           </tr>                               <tr id="section-29">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-29">&#182;</a>               </div>               <p>Try convert received JSON body to Javascript object, fall-back to 
+object with <code>error</code> field that contains normal body. This is because
+API will return JSON for every successful request.</p>             </td>             <td class="code">               <div class="highlight"><pre>          <span class="k">try</span>
+            <span class="nv">response.json = </span><span class="nx">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">response</span><span class="p">.</span><span class="nx">body</span><span class="p">)</span>
+          <span class="k">catch</span> <span class="nx">error</span>
+            <span class="nv">response.json = </span>
+              <span class="nv">error: </span><span class="nx">response</span><span class="p">.</span><span class="nx">body</span></pre></div>             </td>           </tr>                               <tr id="section-30">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-30">&#182;</a>               </div>               <p>Handle error the Node way, by returning <code>err</code>, <code>data</code> pair, instead 
+of just returning response object.</p>             </td>             <td class="code">               <div class="highlight"><pre>          <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">200</span> <span class="o">and</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">.</span><span class="nx">success</span>
+            <span class="nv">err = </span> <span class="kc">null</span>
+            <span class="k">delete</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">.</span><span class="nx">success</span>
+          <span class="k">else</span> 
+            <span class="nv">err = </span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">.</span><span class="nx">error</span><span class="p">)</span>
+
+          <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">response</span><span class="p">);</span>
+        <span class="p">)</span>
+      <span class="p">).</span><span class="nx">end</span><span class="p">(</span><span class="nx">body_tmp</span><span class="p">)</span>
+    
+    <span class="nv">auth = </span><span class="nf">(retry=false) -&gt;</span>
+      <span class="nv">newTime = </span><span class="k">new</span> <span class="nb">Date</span><span class="p">()</span></pre></div>             </td>           </tr>                               <tr id="section-31">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-31">&#182;</a>               </div>               <p>Always get digest header from route that we are sure that provides it 
+<code>/v1/authenticate</code>.</p>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="nv">authOpts =</span>
+        <span class="nv">host: </span><span class="nx">HOST</span>
+        <span class="nv">method: </span><span class="s">&quot;GET&quot;</span>
+        <span class="nv">path: </span><span class="nx">API</span> <span class="o">+</span> <span class="s">&quot;/authenticate/&quot;</span>
+        <span class="nv">port: </span><span class="nx">PORT</span>
+
+      <span class="nx">https</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="nx">authOpts</span><span class="p">,</span> <span class="nf">(res) -&gt;</span>
+        <span class="nx">res</span><span class="p">.</span><span class="nx">setEncoding</span><span class="p">(</span><span class="s">&quot;utf-8&quot;</span><span class="p">)</span>
+        <span class="nx">res</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s">&quot;end&quot;</span><span class="p">,</span> <span class="nf">-&gt;</span></pre></div>             </td>           </tr>                               <tr id="section-32">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-32">&#182;</a>               </div>               <p>Authentication header will be specified we just need to parse it and
+save data for future requests.</p>             </td>             <td class="code">               <div class="highlight"><pre>          <span class="nv">responseParams = </span><span class="nx">parseDigest</span><span class="p">(</span><span class="nx">res</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="s">&quot;www-authenticate&quot;</span><span class="p">])</span>
+
+          <span class="nv">digest.realm = </span><span class="nx">responseParams</span><span class="p">.</span><span class="nx">realm</span>
+          <span class="nv">digest.nonce = </span><span class="nx">responseParams</span><span class="p">.</span><span class="nx">nonce</span>
+          <span class="nv">digest.opaque = </span><span class="nx">responseParams</span><span class="p">.</span><span class="nx">opaque</span>
+          <span class="nv">digest.qop = </span><span class="nx">responseParams</span><span class="p">.</span><span class="nx">qop</span></pre></div>             </td>           </tr>                               <tr id="section-33">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-33">&#182;</a>               </div>               <p>Generate hashes that are used in response and create new client 
+nonce for this request and sets time when last update to digest data
+was made.</p>             </td>             <td class="code">               <div class="highlight"><pre>          <span class="nv">digest.HA1 = </span><span class="nx">md5</span><span class="p">(</span><span class="s">&quot;</span><span class="si">#{</span><span class="nx">account</span><span class="si">}</span><span class="s">:</span><span class="si">#{</span><span class="nx">digest</span><span class="p">.</span><span class="nx">realm</span><span class="si">}</span><span class="s">:</span><span class="si">#{</span><span class="nx">secret</span><span class="si">}</span><span class="s">&quot;</span><span class="p">)</span>
+          <span class="nv">digest.time = </span><span class="nx">newTime</span>
+          <span class="nx">call</span><span class="p">(</span><span class="nx">retry</span><span class="p">)</span>
+        <span class="p">)</span>
+      <span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-34">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-34">&#182;</a>               </div>               <p>We update authentication data every 100 seconds (in milliseconds), because
+server changes realm each 120 seconds and each key is valid while the next
+one is being served. Making it valid to use key for little bit less than 
+240 seconds from moment of issuing. In case key is changed before it will
+return 401 Authentication error and request will be retried with new key.</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="k">if</span> <span class="k">new</span> <span class="nb">Date</span> <span class="o">-</span> <span class="nx">digest</span><span class="p">.</span><span class="nx">time</span> <span class="o">&lt;</span> <span class="p">(</span><span class="mi">100000</span><span class="p">)</span>
+      <span class="nx">call</span><span class="p">()</span>
+    <span class="k">else</span>
+      <span class="nx">auth</span><span class="p">()</span></pre></div>             </td>           </tr>                               <tr id="section-35">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-35">&#182;</a>               </div>               <h3>testConnection(callback)</h3>
+
+<p>Test if entered user credentials are valid and everything is working. In 
+case of error <code>error</code> will be returned, otherwise nothing will be returned 
+(just test whether there was error).</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">testConnection = </span><span class="nf">(callback) -&gt;</span>
+    <span class="nv">opt =</span>
+      <span class="nv">path: </span><span class="s">&quot;/authenticate/&quot;</span>
+
+    <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+    <span class="p">,</span> <span class="nx">opt</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-36">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-36">&#182;</a>               </div>               <h2>Template functions</h2>             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-37">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-37">&#182;</a>               </div>               <h3>getTemplateFields(name, callback, [all])</h3>
+
+<p>Returns dynamic fields and format for each for specified template <code>name</code>, if
+parameter <code>all</code> is set to <code>true</code> it will fetch both static and dynamic 
+fields.</p>
+
+<p>Example return data:</p>
+
+<pre><code>{ 
+  stripImage: { type: 'imageID' },
+  iconImage: { type: 'imageID' },
+  logoImage: { type: 'imageID' },
+  logoText: { type: 'text' },
+  owner: { type: 'text', default: 'Name' } 
+}
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">getTemplateFields = </span><span class="nf">(name, callback, all=false) -&gt;</span>
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Template name is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="nv">opt =</span>
+      <span class="nv">path: </span><span class="s">&quot;/template/</span><span class="si">#{</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span><span class="si">}</span><span class="s">/fieldnames/&quot;</span>
+    
+    <span class="nx">opt</span><span class="p">.</span><span class="nx">path</span> <span class="o">+=</span> <span class="s">&quot;full&quot;</span> <span class="k">if</span> <span class="nx">all</span>
+
+    <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span>
+      <span class="k">if</span> <span class="nx">err</span>
+        <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">404</span>
+          <span class="nv">err.message = </span><span class="s">&quot;Invalid template name!&quot;</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">else</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">[</span><span class="nx">name</span><span class="p">])</span>
+    <span class="p">,</span> <span class="nx">opt</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-38">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-38">&#182;</a>               </div>               <h3>getTemplates(callback)</h3>
+
+<p>Returns array of templates that exist for current <code>username</code>.</p>
+
+<p>Example return data:</p>
+
+<pre><code>['test', 'cool_template', 'carneval_tickets']
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">getTemplates = </span><span class="nf">(callback) -&gt;</span>
+    <span class="nv">opt = </span>
+      <span class="nv">path: </span><span class="s">&quot;/template/list/&quot;</span>
+
+    <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span>
+      <span class="k">if</span> <span class="nx">err</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">else</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">.</span><span class="nx">templates</span><span class="p">)</span>
+    <span class="p">,</span> <span class="nx">opt</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-39">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-39">&#182;</a>               </div>               <h3>resetTemplate(name, callback, [push])</h3>
+
+<p>It will reset all passes within template <code>name</code> to default values 
+(except user-defined fields). If <code>push</code> parameter is set to <code>true</code> it will 
+push changes to all passes, this is enabled by default.</p>
+
+<p><strong>This is function you shouldn't be using except if you really know what are 
+you doing.</strong></p>
+
+<p>Example return data:</p>
+
+<pre><code>{ devices: true }
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">resetTemplate = </span><span class="nf">(name, callback, push=false) -&gt;</span>
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Template name is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="nv">opt = </span>
+      <span class="nv">path: </span><span class="s">&quot;/template/</span><span class="si">#{</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span><span class="si">}</span><span class="s">/reset/&quot;</span>
+
+    <span class="nx">opt</span><span class="p">.</span><span class="nx">path</span> <span class="o">+=</span> <span class="s">&quot;push&quot;</span> <span class="k">if</span> <span class="nx">push</span>
+
+    <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span>
+      <span class="k">if</span> <span class="nx">err</span>
+        <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">404</span>
+          <span class="nv">err.message = </span><span class="s">&quot;Invalid template name!&quot;</span></pre></div>             </td>           </tr>                               <tr id="section-40">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-40">&#182;</a>               </div>               <p>Cover temporary issue on API (when reset is sent without prior update 
+500: Internal server error is returned).</p>             </td>             <td class="code">               <div class="highlight"><pre>        <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">503</span>
+          <span class="nv">err.message = </span><span class="s">&quot;Template must be updated prior reset!&quot;</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">else</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">)</span>
+    <span class="p">,</span> <span class="nx">opt</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-41">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-41">&#182;</a>               </div>               <h3>updateTemplate(name, fields, callback, [push], [reset])</h3>
+
+<p>Update template <code>name</code> with <code>fields</code> object. If <code>push</code> parameter is 
+set to <code>true</code> changes will be pushed to all passes, if <code>reset</code> is set to 
+<code>true</code> all fields except user-entered will be reseted to their default 
+values. <br />
+In case of success <code>{}</code> will be returned.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">updateTemplate = </span><span class="nf">(name, fields, callback, push=false, reset=false) -&gt;</span>
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Template name is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="nv">opt = </span>
+      <span class="nv">method: </span><span class="s">&quot;POST&quot;</span>
+      <span class="nv">path: </span><span class="s">&quot;/template/update/</span><span class="si">#{</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span><span class="si">}</span><span class="s">/&quot;</span>
+    
+    <span class="nx">opt</span><span class="p">.</span><span class="nx">path</span> <span class="o">+=</span> <span class="s">&quot;reset/&quot;</span> <span class="k">if</span> <span class="nx">reset</span>
+    <span class="nx">opt</span><span class="p">.</span><span class="nx">path</span> <span class="o">+=</span> <span class="s">&quot;push&quot;</span> <span class="k">if</span> <span class="nx">push</span>
+
+    <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span>
+      <span class="k">if</span> <span class="nx">err</span>
+        <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">404</span>
+          <span class="nv">err.message = </span><span class="s">&quot;Invalid template name!&quot;</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">else</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">)</span>
+    <span class="p">,</span> <span class="nx">opt</span><span class="p">,</span> <span class="nx">fields</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-42">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-42">&#182;</a>               </div>               <h2>Image functions</h2>             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-43">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-43">&#182;</a>               </div>               <h3>getImageUsage(imageID, callback)</h3>
+
+<p>Returns image usage string for given <code>imageID</code>. Return value will be one 
+of the following:</p>
+
+<pre><code>'background', 'footer', 'logo', 'icon', 'strip', 'thumbnail'
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">getImageUsage = </span><span class="nf">(imageID, callback)  -&gt;</span>
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">imageID</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Image ID is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="nv">opt =</span>
+      <span class="nv">method: </span><span class="s">&quot;GET&quot;</span>
+      <span class="nv">path: </span><span class="s">&quot;/image/</span><span class="si">#{</span><span class="nx">imageID</span><span class="si">}</span><span class="s">/&quot;</span>
+
+    <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span></pre></div>             </td>           </tr>                               <tr id="section-44">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-44">&#182;</a>               </div>               <p>Return appropriate string name for given image.</p>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">200</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s">&quot;background&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">.</span><span class="nx">Background</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s">&quot;footer&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">.</span><span class="nx">Footer</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s">&quot;logo&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">.</span><span class="nx">Logo</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s">&quot;icon&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">.</span><span class="nx">Icon</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s">&quot;strip&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">.</span><span class="nx">Strip</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s">&quot;thumbnail&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">.</span><span class="nx">Thumbnail</span>
+      <span class="k">else</span>
+        <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">404</span>
+          <span class="nv">err.message = </span><span class="s">&quot;Invalid image ID!&quot;</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+    <span class="p">,</span> <span class="nx">opt</span><span class="p">)</span>  
+  </pre></div>             </td>           </tr>                               <tr id="section-45">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-45">&#182;</a>               </div>               <h3>uploadImage(role, path, callback)</h3>
+
+<p>Uploads image located at <code>path</code> to the PassKit API for use as an image with
+<code>role</code>, on success server returns <code>imageID</code> and <code>usage</code> string.</p>
+
+<p>Allowed roles:</p>
+
+<pre><code>'background', 'footer', 'logo', 'icon', 'strip', 'thumbnail'
+</code></pre>
+
+<p>Example return data:</p>
+
+<pre><code>{
+  imageID: "sOmErAnDoMhEx",
+  usage: "Background Image"
+}
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">uploadImage = </span><span class="nf">(role, path, callback) -&gt;</span></pre></div>             </td>           </tr>                               <tr id="section-46">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-46">&#182;</a>               </div>               <p>Make sure that image has valid role.</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="k">if</span> <span class="o">not</span> <span class="p">(</span><span class="nx">role</span> <span class="k">in</span> <span class="p">[</span><span class="s">&quot;background&quot;</span><span class="p">,</span> <span class="s">&quot;footer&quot;</span><span class="p">,</span> <span class="s">&quot;icon&quot;</span><span class="p">,</span> <span class="s">&quot;logo&quot;</span><span class="p">,</span> <span class="s">&quot;strip&quot;</span><span class="p">,</span> <span class="s">&quot;thumbnail&quot;</span><span class="p">])</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Role must be valid string!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span></pre></div>             </td>           </tr>                               <tr id="section-47">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-47">&#182;</a>               </div>               <p>Check if file exists.
+Node 0.6.x FIX</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">exists = </span><span class="nx">fs</span><span class="p">.</span><span class="nx">exists</span> <span class="o">||</span> <span class="nx">require</span><span class="p">(</span><span class="s">&#39;path&#39;</span><span class="p">).</span><span class="nx">exists</span>
+    <span class="nx">exists</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span> <span class="nf">(fileExists) -&gt;</span>
+      <span class="k">if</span> <span class="o">not</span> <span class="nx">fileExists</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Image does not exit: </span><span class="si">#{</span><span class="nx">path</span><span class="si">}</span><span class="s">!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+        <span class="k">return</span></pre></div>             </td>           </tr>                               <tr id="section-48">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-48">&#182;</a>               </div>               <p>Validate file type, only PNG, JPG and GIF images are valid.</p>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="nv">fileType = </span><span class="nx">mime</span><span class="p">.</span><span class="nx">lookup</span><span class="p">(</span><span class="nx">path</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-49">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-49">&#182;</a>               </div>               <p>This won't be necessary exact extension but it's fine since we just need
+it for creating typical file name for this image type because we need to
+provide file name.</p>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="nv">uploadExtension = </span><span class="nx">fileType</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="s">&quot;image/&quot;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+
+      <span class="k">if</span> <span class="o">not</span> <span class="p">(</span><span class="nx">fileType</span> <span class="k">in</span> <span class="p">[</span><span class="s">&quot;image/png&quot;</span><span class="p">,</span> <span class="s">&quot;image/jpeg&quot;</span><span class="p">,</span> <span class="s">&quot;image/gif&quot;</span><span class="p">])</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Invalid file type!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+        <span class="k">return</span></pre></div>             </td>           </tr>                               <tr id="section-50">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-50">&#182;</a>               </div>               <p>Validate file size.</p>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="nx">fs</span><span class="p">.</span><span class="nx">stat</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span> <span class="nf">(err, stats) -&gt;</span>
+        <span class="k">if</span> <span class="nx">err</span>
+          <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+          <span class="k">return</span>
+
+        <span class="k">if</span> <span class="nx">stats</span><span class="p">.</span><span class="nx">size</span> <span class="o">&gt;=</span> <span class="mi">1572864</span>
+          <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Image too large (larger than 1.5MB): </span><span class="si">#{</span><span class="nx">stats</span><span class="p">.</span><span class="nx">size</span><span class="si">}</span><span class="s">!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+          <span class="k">return</span></pre></div>             </td>           </tr>                               <tr id="section-51">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-51">&#182;</a>               </div>               <p>If everything is fine proceed to reading contents and uploading image.</p>             </td>             <td class="code">               <div class="highlight"><pre>        <span class="nx">fs</span><span class="p">.</span><span class="nx">readFile</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span> <span class="nf">(err, data) -&gt;</span></pre></div>             </td>           </tr>                               <tr id="section-52">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-52">&#182;</a>               </div>               <p>We are building request that should look something like this:</p>
+
+<pre><code>POST /v1/image/add/{role} HTTP/1.1
+Host: api.passkit.com
+Content-type: multipart/form-data, boundary={randomHex}
+Content-Length: {body.length}
+
+--{randomHex}
+Content-Disposition: form-data; name="image"; filename="..."
+Content-Type: {fileType}
+
+{data}
+--{randomHex}
+Content-Disposition: form-data; name="type"
+
+{fileType}
+--{randomHex}--
+</code></pre>
+
+<p>Credits: <a href="http://chxo.com/be2/20050724_93bf.html">http://chxo.com/be2/20050724_93bf.html</a></p>             </td>             <td class="code">               <div class="highlight"><pre>          <span class="nv">CRLF = </span><span class="s">&quot;\r\n&quot;</span>
+          <span class="nv">boundary = </span><span class="s">&quot;-----&quot;</span> <span class="o">+</span> <span class="nx">generateHex</span><span class="p">(</span><span class="mi">12</span><span class="p">)</span>
+          <span class="nv">separator = </span><span class="nx">CRLF</span> <span class="o">+</span> <span class="s">&quot;--&quot;</span> <span class="o">+</span> <span class="nx">boundary</span></pre></div>             </td>           </tr>                               <tr id="section-53">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-53">&#182;</a>               </div>               <p>Set headers for each data field.</p>             </td>             <td class="code">               <div class="highlight"><pre>          <span class="nv">fileHeaders = </span><span class="p">[</span>
+            <span class="s">&quot;Content-Disposition: form-data; name=\&quot;image\&quot;; filename=\&quot;image.</span><span class="si">#{</span><span class="nx">uploadExtension</span><span class="si">}</span><span class="s">\&quot;&quot;</span>
+            <span class="s">&quot;Content-Type: </span><span class="si">#{</span><span class="nx">fileType</span><span class="si">}</span><span class="s">&quot;</span>
+          <span class="p">]</span>
+          <span class="nv">inputHeaders = </span><span class="p">[</span>
+            <span class="s">&quot;Content-Disposition: form-data; name=\&quot;type\&quot;&quot;</span>
+          <span class="p">]</span>
+
+          <span class="nv">buffers = </span><span class="p">[</span>
+              <span class="k">new</span> <span class="nx">Buffer</span><span class="p">(</span><span class="nx">separator</span> <span class="o">+</span> <span class="nx">CRLF</span> <span class="o">+</span> <span class="nx">fileHeaders</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">CRLF</span><span class="p">)</span> <span class="o">+</span> <span class="nx">CRLF</span> <span class="o">+</span> <span class="nx">CRLF</span><span class="p">),</span>
+              <span class="nx">data</span><span class="p">,</span>
+              <span class="k">new</span> <span class="nx">Buffer</span><span class="p">(</span><span class="nx">separator</span> <span class="o">+</span> <span class="nx">CRLF</span> <span class="o">+</span> <span class="nx">inputHeaders</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">CRLF</span><span class="p">)</span> <span class="o">+</span> <span class="nx">CRLF</span> <span class="o">+</span> <span class="nx">CRLF</span><span class="p">),</span>
+              <span class="k">new</span> <span class="nx">Buffer</span><span class="p">(</span><span class="nx">fileType</span><span class="p">),</span>
+              <span class="k">new</span> <span class="nx">Buffer</span><span class="p">(</span><span class="nx">separator</span> <span class="o">+</span> <span class="s">&quot;--&quot;</span><span class="p">)</span>
+            <span class="p">]</span></pre></div>             </td>           </tr>                               <tr id="section-54">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-54">&#182;</a>               </div>               <p>Node 0.6.x FIX</p>             </td>             <td class="code">               <div class="highlight"><pre>          <span class="k">if</span> <span class="nx">process</span><span class="p">.</span><span class="nx">version</span> <span class="o">&lt;</span> <span class="s">&#39;v0.8&#39;</span>
+            <span class="nv">buffersLength = </span><span class="mi">0</span>
+            <span class="k">for</span> <span class="nx">b</span> <span class="k">in</span> <span class="nx">buffers</span>
+              <span class="nx">buffersLength</span> <span class="o">+=</span> <span class="nx">b</span><span class="p">.</span><span class="nx">length</span>
+
+            <span class="nv">body = </span><span class="k">new</span> <span class="nx">Buffer</span><span class="p">(</span><span class="nx">buffersLength</span><span class="p">)</span>
+            <span class="nv">targetStart = </span><span class="mi">0</span>
+            <span class="k">for</span> <span class="nx">b</span> <span class="k">in</span> <span class="nx">buffers</span>
+              <span class="nx">b</span><span class="p">.</span><span class="nx">copy</span><span class="p">(</span><span class="nx">body</span><span class="p">,</span> <span class="nx">targetStart</span><span class="p">)</span>
+              <span class="nx">targetStart</span> <span class="o">+=</span> <span class="nx">b</span><span class="p">.</span><span class="nx">length</span>
+          <span class="k">else</span></pre></div>             </td>           </tr>                               <tr id="section-55">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-55">&#182;</a>               </div>               <p>Join entire body.</p>             </td>             <td class="code">               <div class="highlight"><pre>            <span class="nv">body = </span><span class="nx">Buffer</span><span class="p">.</span><span class="nx">concat</span><span class="p">(</span><span class="nx">buffers</span><span class="p">)</span>
+
+          <span class="nv">opt =</span>
+            <span class="nv">headers: </span><span class="p">{</span> <span class="s">&quot;Content-Type&quot;</span><span class="o">:</span> <span class="s">&quot;multipart/form-data; boundary=</span><span class="si">#{</span><span class="nx">boundary</span><span class="si">}</span><span class="s">&quot;</span> <span class="p">}</span>
+            <span class="nv">method: </span><span class="s">&quot;POST&quot;</span>
+            <span class="nv">path: </span><span class="s">&quot;/image/add/</span><span class="si">#{</span><span class="nx">role</span><span class="si">}</span><span class="s">/&quot;</span>
+
+          <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span>
+            <span class="k">if</span> <span class="nx">err</span>
+              <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+            <span class="k">else</span>
+              <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">)</span>
+          <span class="p">,</span> <span class="nx">opt</span><span class="p">,</span> <span class="nx">body</span><span class="p">)</span>
+        <span class="p">)</span>
+      <span class="p">)</span>
+    <span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-56">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-56">&#182;</a>               </div>               <h2>Pass functions</h2>             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-57">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-57">&#182;</a>               </div>               <h3>getPass(template, serial, callback)</h3>
+
+<p>Fetches pass with <code>serial</code> number from passes within same <code>template</code> name.</p>
+
+<p>Example response data:</p>
+
+<pre><code>{ 
+  serialNumber: '100000000001',
+  templateName: 'test',
+  uniqueID: 'uNiqUeIdEnT',
+  templateLastUpdated: '2013-01-29T19:42:54+00:00',
+  totalPasses: 1,
+  passRecords: { 
+    pass_1: { 
+      passMeta: { 
+        passStatus: 'Not Added',
+        recoveryURL: 'https://r.pass.is/uNiqUeIdEnT',
+        issueDate: '2013-01-29T23:22:26+00:00',
+        lastDataChange: '2013-01-29T23:22:26+00:00',
+        passbookSerial: 'pAsSbOoKSeRiAl' 
+      }, 
+      passData: { 
+        owner: 'Name' 
+      } 
+    } 
+  } 
+}
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">getPass = </span><span class="nf">(template, serial, callback)  -&gt;</span>
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">template</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Template name is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">serial</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Pass serial number is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="nv">opt = </span>
+      <span class="nv">method: </span><span class="s">&quot;GET&quot;</span>
+      <span class="nv">path: </span><span class="s">&quot;/pass/get/template/</span><span class="si">#{</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">template</span><span class="p">)</span><span class="si">}</span><span class="s">/serial/</span><span class="si">#{</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">serial</span><span class="p">)</span><span class="si">}</span><span class="s">/&quot;</span>
+
+    <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span>
+      <span class="k">if</span> <span class="nx">err</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">else</span>
+        <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">.</span><span class="nx">totalPasses</span>
+          <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">)</span>
+        <span class="k">else</span>
+          <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Template name or serial number is invalid!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+    <span class="p">,</span> <span class="nx">opt</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-58">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-58">&#182;</a>               </div>               <h3>getPassByID(passID, callback)</h3>
+
+<p>It does exactly the same as getPass but instead of <code>template</code> and <code>serial</code>
+it uses <code>passID</code> that is unique pass identification number (the one used
+in URL-s and called <code>uniqueID</code> in object data).</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">getPassByID = </span><span class="nf">(passID, callback)  -&gt;</span>
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">passID</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Pass ID is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="nv">opt = </span>
+      <span class="nv">method: </span><span class="s">&quot;GET&quot;</span>
+      <span class="nv">path: </span><span class="s">&quot;/pass/get/passId/</span><span class="si">#{</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">passID</span><span class="p">)</span><span class="si">}</span><span class="s">/&quot;</span>
+
+    <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span>
+      <span class="k">if</span> <span class="nx">err</span>
+        <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">404</span>
+          <span class="nv">err.message = </span><span class="s">&quot;Invalid pass template name or serial number!&quot;</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">else</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">)</span>
+    <span class="p">,</span> <span class="nx">opt</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-59">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-59">&#182;</a>               </div>               <h3>invalidatePass(template, serial, fields, callback)</h3>
+
+<p>Irrecoverably invalidates pass with specified <code>serial</code>. After invalidation
+it is no longer possible to update pass. If <code>fields</code> are provided it will 
+update specified fields (this is useful for example updating data that is no
+longer needed).</p>
+
+<p>Additionally fields support three specific keys (all by default <code>true</code>):  </p>
+
+<ul>
+<li><code>removeBarcode</code> - barcode will be removed (not possible to scan it 
+anymore)  </li>
+<li><code>removeLocations</code> - all locations will be removed (no more location 
+based alerts)  </li>
+<li><code>removeRelevantDate</code> - relevant date will be removed (no more time based
+alerts)</li>
+</ul>
+
+<p>Example return data:</p>
+
+<pre><code>{
+    device_ids: "no registered devices",
+    passes:1
+}
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">invalidatePass = </span><span class="nf">(template, serial, fields, callback)  -&gt;</span>
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">template</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Template name is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">serial</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Pass serial number is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="nv">fields.removeBarcode = </span><span class="kc">true</span> <span class="k">if</span> <span class="nx">fields</span><span class="p">.</span><span class="nx">removeBarcode</span> <span class="o">is</span> <span class="kc">undefined</span>
+    <span class="nv">fields.removeLocations = </span><span class="kc">true</span> <span class="k">if</span> <span class="nx">fields</span><span class="p">.</span><span class="nx">removeLocations</span> <span class="o">is</span> <span class="kc">undefined</span>
+    <span class="nv">fields.removeRelevantDate = </span><span class="kc">true</span> <span class="k">if</span> <span class="nx">fields</span><span class="p">.</span><span class="nx">removeRelevantDate</span> <span class="o">is</span> <span class="kc">undefined</span>
+
+    <span class="nv">opt =</span>
+      <span class="nv">method: </span><span class="s">&quot;POST&quot;</span>
+      <span class="nv">path: </span><span class="s">&quot;/pass/invalidate/template/</span><span class="si">#{</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">template</span><span class="p">)</span><span class="si">}</span><span class="s">/serial/</span><span class="si">#{</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">serial</span><span class="p">)</span><span class="si">}</span><span class="s">/&quot;</span>
+
+    <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span>
+      <span class="k">if</span> <span class="nx">err</span>
+        <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">404</span>
+          <span class="nv">err.message = </span><span class="s">&quot;Invalid pass template name or serial number!&quot;</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">else</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">)</span>
+    <span class="p">,</span> <span class="nx">opt</span><span class="p">,</span> <span class="nx">fields</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-60">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-60">&#182;</a>               </div>               <h3>issuePass(template, fields, callback)</h3>
+
+<p>Issues new pass with given <code>template</code> design and populates its fields with
+<code>fields</code> properties. On success returns pass <code>serial</code> (serial number in 
+given template collection), <code>url</code> (unique shortened URL for sharing pass)
+and <code>passbookSerial</code> that is for using with Apple's PKPassLibrary class.</p>
+
+<p>Optional field value is: <code>installIP</code> which will be used for statistics 
+in your PassKit account.</p>
+
+<p>Example return data:</p>
+
+<pre><code>{ 
+  serial: '100000000001',
+  url: 'https://r.pass.is/sOmErAnDoM',
+  passbookSerial: 'SoMeRaNdOmLoNgHeX' 
+}
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">issuePass = </span><span class="nf">(template, fields, callback)  -&gt;</span>
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">template</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Template name is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="nv">data = </span><span class="nx">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">(</span><span class="nx">fields</span><span class="p">)</span>
+
+    <span class="nv">opt = </span>
+      <span class="nv">headers: </span><span class="p">{</span> <span class="s">&quot;Content-Type&quot;</span><span class="o">:</span> <span class="s">&quot;application/json&quot;</span> <span class="p">}</span>
+      <span class="nv">method: </span><span class="s">&quot;POST&quot;</span>
+      <span class="nv">path: </span><span class="s">&quot;/pass/issue/template/</span><span class="si">#{</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">template</span><span class="p">)</span><span class="si">}</span><span class="s">/&quot;</span>
+
+    <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span>
+      <span class="k">if</span> <span class="nx">err</span>
+        <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">404</span>
+          <span class="nv">err.message = </span><span class="s">&quot;Template name is invalid!&quot;</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">else</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">)</span>
+    <span class="p">,</span> <span class="nx">opt</span><span class="p">,</span> <span class="nx">data</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-61">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-61">&#182;</a>               </div>               <h3>issueMultiplePasses(template, passes, callback)</h3>
+
+<p>It takes <code>template</code> name and object <code>passes</code> with list of passes as 
+key-value pairs, each key will be used in response for returning result for 
+that same object and value will be used as parameters for creating that 
+specific pass.</p>
+
+<p>Example <code>passes</code> data:</p>
+
+<pre><code>{
+  pass: {},
+  pass2: { owner: 'Mickey' }
+}
+</code></pre>
+
+<p>Example response data:</p>
+
+<pre><code>{ 
+  passes: { 
+    pass: { 
+      serial: '100000000001', 
+      url: 'https://r.pass.is/rNdMhEx'
+    },
+    pass2: { 
+      serial: '100000000002', 
+      url: 'https://r.pass.is/rNdMhEx2' 
+    } 
+  },
+  request_time: -0.203458 
+}
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">issueMultiplePasses = </span><span class="nf">(template, passes, callback)  -&gt;</span>
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">template</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Template name is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="k">if</span> <span class="o">not</span> <span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="nx">passes</span><span class="p">).</span><span class="nx">length</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;At least one pass must be provided!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="k">if</span> <span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="nx">passes</span><span class="p">).</span><span class="nx">length</span> <span class="o">&gt;</span> <span class="mi">100</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Too many passes provided!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="nv">data = </span><span class="nx">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">(</span><span class="nx">passes</span><span class="p">)</span>
+
+    <span class="nv">opt =</span>
+      <span class="nv">headers: </span><span class="p">{</span> <span class="s">&quot;Content-Type&quot;</span><span class="o">:</span> <span class="s">&quot;application/json&quot;</span> <span class="p">}</span>
+      <span class="nv">method: </span><span class="s">&quot;POST&quot;</span>
+      <span class="nv">path: </span><span class="s">&quot;/pass/issue/batch/template/</span><span class="si">#{</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">template</span><span class="p">)</span><span class="si">}</span><span class="s">/&quot;</span>
+
+    <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span>
+      <span class="k">if</span> <span class="nx">err</span>
+        <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">404</span>
+          <span class="nv">err.message = </span><span class="s">&quot;Template name is invalid!&quot;</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">else</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">)</span>
+    <span class="p">,</span> <span class="nx">opt</span><span class="p">,</span> <span class="nx">data</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-62">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-62">&#182;</a>               </div>               <h3>updatePass(template, serial, fields, callback, [push])</h3>
+
+<p>It will update specified only <code>fields</code> singe pass with given <code>template</code> name
+and <code>serial</code>. By default <code>push</code> is enabled and changes will be pushed to the
+users device.</p>
+
+<p>Example response data:</p>
+
+<pre><code>{
+  device_ids: "no registered devices",
+  passes: 1
+}
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">updatePass = </span><span class="nf">(template, serial, fields, callback, push=true)  -&gt;</span>
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">template</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Template name is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">serial</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Pass serial number is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="k">if</span> <span class="o">not</span> <span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="nx">fields</span><span class="p">).</span><span class="nx">length</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Nothing to update!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="nv">opt =</span>
+      <span class="nv">method: </span><span class="s">&quot;POST&quot;</span>
+      <span class="nv">path: </span><span class="s">&quot;/pass/update/template/</span><span class="si">#{</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">template</span><span class="p">)</span><span class="si">}</span><span class="s">/serial/</span><span class="si">#{</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">serial</span><span class="p">)</span><span class="si">}</span><span class="s">/&quot;</span>
+    
+    <span class="nx">opt</span><span class="p">.</span><span class="nx">path</span> <span class="o">+=</span> <span class="s">&quot;push&quot;</span> <span class="k">if</span> <span class="nx">push</span>
+
+    <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span>
+      <span class="k">if</span> <span class="nx">err</span>
+        <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">404</span>
+          <span class="nv">err.message = </span><span class="s">&quot;Invalid pass template name or serial number!&quot;</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">else</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">)</span>
+    <span class="p">,</span> <span class="nx">opt</span><span class="p">,</span> <span class="nx">fields</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-63">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-63">&#182;</a>               </div>               <h3>updatePassByID(passID, fields, callback, [push])</h3>
+
+<p>It does exactly the same as updatePass but instead of <code>template</code> and 
+<code>serial</code> it uses <code>passID</code>. By default <code>push</code> is enabled and changes will be 
+pushed to the users device.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">updatePassByID = </span><span class="nf">(passID, fields, callback, push=true)  -&gt;</span>
+    <span class="k">if</span> <span class="o">not</span> <span class="nx">sanitize</span><span class="p">(</span><span class="nx">passID</span><span class="p">)</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Pass ID is required!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="k">if</span> <span class="o">not</span> <span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="nx">fields</span><span class="p">).</span><span class="nx">length</span>
+      <span class="nx">callback</span><span class="p">(</span><span class="k">new</span> <span class="nx">PassKitError</span><span class="p">(</span><span class="s">&quot;Nothing to update!&quot;</span><span class="p">),</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">return</span>
+
+    <span class="nv">opt =</span>
+      <span class="nv">method: </span><span class="s">&quot;POST&quot;</span>
+      <span class="nv">path: </span><span class="s">&quot;/pass/update/passid/</span><span class="si">#{</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">passID</span><span class="p">)</span><span class="si">}</span><span class="s">/&quot;</span>
+    
+    <span class="nx">opt</span><span class="p">.</span><span class="nx">path</span> <span class="o">+=</span> <span class="s">&quot;push&quot;</span> <span class="k">if</span> <span class="nx">push</span>
+    
+    <span class="nx">request</span><span class="p">(</span><span class="nf">(err, response) -&gt;</span>
+      <span class="k">if</span> <span class="nx">err</span>
+        <span class="k">if</span> <span class="nx">response</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">is</span> <span class="mi">404</span>
+          <span class="nv">err.message = </span><span class="s">&quot;Invalid pass template name or serial number!&quot;</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">)</span>
+      <span class="k">else</span>
+        <span class="nx">callback</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">response</span><span class="p">.</span><span class="nx">json</span><span class="p">)</span>
+    <span class="p">,</span> <span class="nx">opt</span><span class="p">,</span> <span class="nx">fields</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-64">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-64">&#182;</a>               </div>               <p>Map functions to the return object.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="k">return</span> <span class="p">{</span>
+    <span class="nv">request: </span><span class="nx">request</span>
+    <span class="nv">testConnection: </span><span class="nx">testConnection</span></pre></div>             </td>           </tr>                               <tr id="section-65">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-65">&#182;</a>               </div>               <p>Template functions:</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">getTemplates: </span><span class="nx">getTemplates</span>
+    <span class="nv">getTemplateFields: </span><span class="nx">getTemplateFields</span>
+    <span class="nv">resetTemplate: </span><span class="nx">resetTemplate</span>
+    <span class="nv">updateTemplate: </span><span class="nx">updateTemplate</span></pre></div>             </td>           </tr>                               <tr id="section-66">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-66">&#182;</a>               </div>               <p>Image functions:</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">getImageUsage: </span><span class="nx">getImageUsage</span>
+    <span class="nv">uploadImage: </span><span class="nx">uploadImage</span></pre></div>             </td>           </tr>                               <tr id="section-67">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-67">&#182;</a>               </div>               <p>Pass functions:</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">getPass: </span><span class="nx">getPass</span>
+    <span class="nv">getPassByID: </span><span class="nx">getPassByID</span>
+    <span class="nv">invalidatePass: </span><span class="nx">invalidatePass</span>
+    <span class="nv">issuePass: </span><span class="nx">issuePass</span>
+    <span class="nv">issueMultiplePasses: </span><span class="nx">issueMultiplePasses</span>
+    <span class="nv">updatePass: </span><span class="nx">updatePass</span>
+    <span class="nv">updatePassByID: </span><span class="nx">updatePassByID</span></pre></div>             </td>           </tr>                               <tr id="section-68">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-68">&#182;</a>               </div>               <p>Helpers (public and private):</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">helpers: </span>
+      <span class="nv">parsePassURL: </span><span class="nx">parsePassURL</span>
+      <span class="nv">supportsPassbook: </span><span class="nx">supportsPassbook</span>
+    <span class="nv">private:</span>
+      <span class="nv">PassKitError: </span><span class="nx">PassKitError</span>
+      <span class="nv">generateHex: </span><span class="nx">generateHex</span>
+      <span class="nv">md5: </span><span class="nx">md5</span>
+      <span class="nv">parseDigest: </span><span class="nx">parseDigest</span>
+      <span class="nv">renderDigest: </span><span class="nx">renderDigest</span>
+      <span class="nv">sanitize: </span><span class="nx">sanitize</span>
+  <span class="p">}</span></pre></div>             </td>           </tr>                               <tr id="section-69">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-69">&#182;</a>               </div>               <p>Requiring this library should return Passkit class.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">module.exports = </span><span class="nx">PassKit</span>
+
+</pre></div>             </td>           </tr>                </tbody>     </table>   </div> </body> </html> 
