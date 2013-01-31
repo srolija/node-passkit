@@ -1,0 +1,35 @@
+{
+  "name": "passkit",
+  "version" : "0.8.0",
+  "author": "Sergej Jakovljev <sergej.jakovljev@gmail.com>",
+  "description": "Passbook passes with PassKit (http://www.passkit.com) API made easy",
+  "scripts": {
+    "compile": "coffee -o ./lib -c src/",
+    "test": "coffee -o ./lib -c src/ && mocha ./tests --compilers coffee:coffee-script --timeout 15s --reporter spec --require ./test_helper.js"
+  },
+  "main": "./lib/passkit",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/srolija/node-passkit.git"
+  },
+  "keywords" : [ 
+    "pass", 
+    "passbook", 
+    "passkit",
+    "ticket"
+  ],
+  "dependencies": {
+    "mime": "1.2.9"
+  },
+  "devDependencies": {
+    "chai": "1.2.x",
+    "coffee-script": "1.4.x",
+    "mocha": "*",
+    "nock": "0.14.x",
+    "sinon": "1.5.x"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=0.6"
+  }
+}
