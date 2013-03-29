@@ -356,7 +356,8 @@ PassKit = (account, secret) ->
           # If we aren't stringifying it then it won't be changed for retrial
           # in case of 401 so there is no need to copy it. 
           body_tmp = body
-        options.headers["Content-Length"] = body_tmp.length 
+        # Content-Length header requires lenght in bytes not characters.
+        options.headers["Content-Length"] = Buffer.byteLength(body_tmp, 'utf8')
         # Default content type, it will be overridden on multi-part POST.
         options.headers["Content-Type"] = "application/x-www-form-urlencoded" unless options.headers["Content-Type"]
 
