@@ -1,6 +1,6 @@
 {
   "name": "passkit",
-  "version" : "0.8.0",
+  "version" : "0.8.1",
   "author": "Sergej Jakovljev <sergej.jakovljev@gmail.com>",
   "description": "Passbook passes with PassKit (http://www.passkit.com) API made easy",
   "scripts": {

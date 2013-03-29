@@ -72,6 +72,12 @@ Keep in mind that integration tests **do not cover entire API** just most import
 
 ## Versions
 
+### 0.8.1
+Date 3/29/2013
+
+Fixed Content-Length problem. 
+Recompiled with latest coffee-script.
+
 ### 0.8.0
 Date: 1/31/2013
 
